@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
@@ -48,6 +51,14 @@ def download_data(cfg: DictConfig) -> dict[str, Any]:
             )
         return {"status": "ok", "raw_dir": str(raw_dir), "source": "partial_existing"}
 
+    # Try Kaggle CLI download (requires `kaggle` installed and credentials configured).
+    if _try_kaggle_competition_download(
+        raw_dir=raw_dir,
+        competition="jigsaw-toxic-comment-classification-challenge",
+    ):
+        if train_csv.exists():
+            return {"status": "ok", "raw_dir": str(raw_dir), "source": "kaggle_cli"}
+
     LOGGER.warning(
         "Raw Kaggle files not found. Generating synthetic dataset at %s "
         "for smoke tests.",
@@ -63,6 +74,58 @@ def download_data(cfg: DictConfig) -> dict[str, Any]:
         seed=int(cfg.seed),
     )
     return {"status": "ok", "raw_dir": str(raw_dir), "source": "synthetic"}
+
+
+def _try_kaggle_competition_download(raw_dir: Path, competition: str) -> bool:
+    """
+    Best-effort Kaggle CLI download:
+      kaggle competitions download -c <competition> -p <raw_dir>
+
+    Expects Kaggle credentials already configured (kaggle.json or env vars).
+    """
+    kaggle = shutil.which("kaggle")
+    if kaggle is None:
+        LOGGER.info("Kaggle CLI not found on PATH; skipping Kaggle download.")
+        return False
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = raw_dir / f"{competition}.zip"
+
+    cmd = [
+        kaggle,
+        "competitions",
+        "download",
+        "-c",
+        competition,
+        "-p",
+        str(raw_dir),
+        "--force",
+    ]
+    try:
+        LOGGER.info("Attempting Kaggle download: %s", " ".join(cmd))
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        LOGGER.warning("Kaggle CLI download failed (exit %s): %s", e.returncode, e)
+        return False
+
+    # Kaggle CLI may produce either <competition>.zip or a generic *.zip in the folder.
+    if not zip_path.exists():
+        zips = sorted(
+            raw_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
+        if not zips:
+            LOGGER.warning("Kaggle CLI succeeded but no zip found in %s", raw_dir)
+            return False
+        zip_path = zips[0]
+
+    try:
+        LOGGER.info("Unzipping %s -> %s", zip_path, raw_dir)
+        with ZipFile(zip_path, "r") as zf:
+            zf.extractall(raw_dir)
+        return True
+    except Exception as e:
+        LOGGER.warning("Failed to unzip Kaggle archive %s: %s", zip_path, e)
+        return False
 
 
 def _generate_synthetic_test_and_submission(
