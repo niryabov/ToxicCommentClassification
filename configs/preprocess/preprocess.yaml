@@ -7,17 +7,25 @@ clean:
   strip: true
 
 split:
-  val_size: 0.1
-  random_state: ${seed}
+  # Match the reference Keras snippet: train_size=0.95, random_state=233
+  train_size: 0.95
+  val_size: null
+  random_state: 233
 
 vocab:
-  max_size: 20000
-  min_freq: 2
+  # Match Keras Tokenizer(num_words=max_features)
+  max_size: 30000
+  min_freq: 1
   unk_token: "[UNK]"
   pad_token: "[PAD]"
+  # Match Keras tokenizer fit_on_texts(list(X_train)+list(X_test))
+  fit_on_test: true
+  # Match Keras: OOV tokens are effectively dropped (no oov_token used)
+  drop_oov: true
 
 tokenize:
-  max_length: 200
+  # Match Keras pad_sequences(..., maxlen=100) with default padding='pre', truncating='pre'
+  max_length: 100
 
 synthetic:
   n_train: 256

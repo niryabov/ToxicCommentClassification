@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 
@@ -25,7 +24,11 @@ class Vocab:
     token_to_id: dict[str, int]
     id_to_token: list[str]
     pad_token: str
-    unk_token: str
+    unk_token: str | None
+    mode: str = "keras"
+    drop_oov: bool = True
+    pad_left: bool = True
+    truncate_left: bool = True
 
     @property
     def pad_id(self) -> int:
@@ -33,6 +36,8 @@ class Vocab:
 
     @property
     def unk_id(self) -> int:
+        if self.unk_token is None:
+            raise ValueError("unk_token is None for this vocab")
         return self.token_to_id[self.unk_token]
 
 
@@ -48,15 +53,24 @@ def preprocess_data(cfg: DictConfig) -> dict[str, Any]:
         if col not in df.columns:
             raise ValueError(f"Expected column '{col}' in {raw_train}")
 
-    df[text_col] = df[text_col].fillna("").astype(str)
+    # Match Keras snippet: fillna("fillna")
+    df[text_col] = df[text_col].fillna("fillna").astype(str)
     df["clean_text"] = df[text_col].map(lambda s: clean_text(s, cfg))
 
-    train_df, val_df = train_test_split(
-        df,
-        test_size=float(cfg.preprocess.split.val_size),
-        random_state=int(cfg.preprocess.split.random_state),
-        stratify=None,
-    )
+    if cfg.preprocess.split.train_size is not None:
+        train_df, val_df = train_test_split(
+            df,
+            train_size=float(cfg.preprocess.split.train_size),
+            random_state=int(cfg.preprocess.split.random_state),
+            stratify=None,
+        )
+    else:
+        train_df, val_df = train_test_split(
+            df,
+            test_size=float(cfg.preprocess.split.val_size),
+            random_state=int(cfg.preprocess.split.random_state),
+            stratify=None,
+        )
 
     processed_dir = resolve_path(cfg.data.processed_dir)
     ensure_dir(processed_dir)
@@ -65,12 +79,22 @@ def preprocess_data(cfg: DictConfig) -> dict[str, Any]:
     val_out = resolve_path(cfg.data.val_processed_path)
     vocab_out = resolve_path(cfg.data.vocab_path)
 
-    vocab = build_vocab(
-        train_df["clean_text"].tolist(),
+    # Keras-style vocab: fit on train+test, keep top max_size-1 tokens, PAD=0
+    fit_texts = train_df["clean_text"].tolist()
+    if bool(cfg.preprocess.vocab.fit_on_test):
+        test_csv = resolve_path(cfg.data.test_csv)
+        if test_csv.exists():
+            test_df = read_csv(test_csv)
+            test_df[text_col] = test_df[text_col].fillna("fillna").astype(str)
+            test_df["clean_text"] = test_df[text_col].map(lambda s: clean_text(s, cfg))
+            fit_texts = fit_texts + test_df["clean_text"].tolist()
+
+    vocab = build_vocab_keras_style(
+        texts=fit_texts,
         max_size=int(cfg.preprocess.vocab.max_size),
-        min_freq=int(cfg.preprocess.vocab.min_freq),
         pad_token=str(cfg.preprocess.vocab.pad_token),
         unk_token=str(cfg.preprocess.vocab.unk_token),
+        drop_oov=bool(cfg.preprocess.vocab.drop_oov),
     )
     save_vocab(vocab, vocab_out)
 
@@ -98,11 +122,13 @@ def preprocess_data(cfg: DictConfig) -> dict[str, Any]:
 
 
 def clean_text(text: str, cfg: DictConfig) -> str:
+    # Close to Keras Tokenizer defaults: lowercase + filters punctuation into spaces.
     s = text
     if bool(cfg.preprocess.clean.lowercase):
         s = s.lower()
     if bool(cfg.preprocess.clean.remove_punctuation):
-        s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+        # Keras filters default contains underscore; mimic by removing non-alnum/space.
+        s = re.sub(r"[^0-9a-z\s]", " ", s, flags=re.UNICODE)
     if bool(cfg.preprocess.clean.collapse_whitespace):
         s = re.sub(r"\s+", " ", s)
     if bool(cfg.preprocess.clean.strip):
@@ -139,7 +165,56 @@ def build_vocab(
         if len(id_to_token) >= max_size:
             break
 
-    return Vocab(token_to_id=token_to_id, id_to_token=id_to_token, pad_token=pad_token, unk_token=unk_token)
+    return Vocab(
+        token_to_id=token_to_id,
+        id_to_token=id_to_token,
+        pad_token=pad_token,
+        unk_token=unk_token,
+        mode="simple",
+        drop_oov=False,
+        pad_left=False,
+        truncate_left=False,
+    )
+
+
+def build_vocab_keras_style(
+    texts: list[str],
+    max_size: int,
+    pad_token: str,
+    unk_token: str,
+    drop_oov: bool,
+) -> Vocab:
+    """
+    Mimic Keras Tokenizer(num_words=max_features) without oov_token:
+      - PAD id = 0
+      - tokens ranked by frequency
+      - keep only top (max_size - 1) tokens with ids 1..max_size-1
+      - unknown tokens are dropped at encoding time (if drop_oov=True)
+    """
+    counter: Counter[str] = Counter()
+    for t in texts:
+        counter.update(simple_tokenize(t))
+
+    token_to_id = {pad_token: 0}
+    id_to_token = [pad_token]
+
+    for tok, _freq in counter.most_common(max_size - 1):
+        if tok in token_to_id:
+            continue
+        token_to_id[tok] = len(id_to_token)
+        id_to_token.append(tok)
+
+    return Vocab(
+        token_to_id=token_to_id,
+        id_to_token=id_to_token,
+        pad_token=pad_token,
+        # Keep unk token name for compatibility, but in keras mode we drop OOVs.
+        unk_token=unk_token,
+        mode="keras",
+        drop_oov=drop_oov,
+        pad_left=True,
+        truncate_left=True,
+    )
 
 
 def save_vocab(vocab: Vocab, path: Path) -> None:
@@ -149,8 +224,14 @@ def save_vocab(vocab: Vocab, path: Path) -> None:
         "id_to_token": vocab.id_to_token,
         "pad_token": vocab.pad_token,
         "unk_token": vocab.unk_token,
+        "mode": vocab.mode,
+        "drop_oov": vocab.drop_oov,
+        "pad_left": vocab.pad_left,
+        "truncate_left": vocab.truncate_left,
     }
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
 
 def load_vocab(path: Path) -> Vocab:
@@ -159,7 +240,15 @@ def load_vocab(path: Path) -> Vocab:
         token_to_id={str(k): int(v) for k, v in payload["token_to_id"].items()},
         id_to_token=[str(x) for x in payload["id_to_token"]],
         pad_token=str(payload["pad_token"]),
-        unk_token=str(payload["unk_token"]),
+        unk_token=(
+            str(payload.get("unk_token"))
+            if payload.get("unk_token") is not None
+            else None
+        ),
+        mode=str(payload.get("mode", "simple")),
+        drop_oov=bool(payload.get("drop_oov", False)),
+        pad_left=bool(payload.get("pad_left", False)),
+        truncate_left=bool(payload.get("truncate_left", False)),
     )
 
 
@@ -172,9 +261,27 @@ def encode_batch(
     attn = np.zeros((len(texts), max_length), dtype=np.int64)
     for i, t in enumerate(texts):
         toks = simple_tokenize(t)
-        ids = [vocab.token_to_id.get(tok, vocab.unk_id) for tok in toks][:max_length]
-        input_ids[i, : len(ids)] = np.asarray(ids, dtype=np.int64)
-        attn[i, : len(ids)] = 1
+        ids_list: list[int] = []
+        for tok in toks:
+            idx = vocab.token_to_id.get(tok)
+            if idx is None:
+                if vocab.drop_oov:
+                    continue
+                idx = vocab.unk_id
+            ids_list.append(int(idx))
+
+        if vocab.truncate_left:
+            ids_list = ids_list[-max_length:]
+        else:
+            ids_list = ids_list[:max_length]
+
+        ids = np.asarray(ids_list, dtype=np.int64)
+        if vocab.pad_left:
+            start = max_length - len(ids)
+            if len(ids) > 0:
+                input_ids[i, start:] = ids
+                attn[i, start:] = 1
+        else:
+            input_ids[i, : len(ids)] = ids
+            attn[i, : len(ids)] = 1
     return input_ids, attn
-
-

@@ -49,7 +49,8 @@ def download_data(cfg: DictConfig) -> dict[str, Any]:
         return {"status": "ok", "raw_dir": str(raw_dir), "source": "partial_existing"}
 
     LOGGER.warning(
-        "Raw Kaggle files not found. Generating synthetic dataset at %s for smoke tests.",
+        "Raw Kaggle files not found. Generating synthetic dataset at %s "
+        "for smoke tests.",
         raw_dir,
     )
     _generate_synthetic_kaggle_like(
@@ -134,7 +135,9 @@ def _generate_synthetic_kaggle_like(
     # Create correlated multi-label targets (not perfect, but deterministic-ish)
     base = rng.random((n_train, len(labels)))
     # Increase probability if toxic words present
-    toxic_signal = train["comment_text"].str.contains("|".join(toxic_words)).astype(float)
+    toxic_signal = (
+        train["comment_text"].str.contains("|".join(toxic_words)).astype(float)
+    )
     base = 0.15 * base + 0.85 * toxic_signal.to_numpy()[:, None] * rng.random(
         (n_train, len(labels))
     )
@@ -155,5 +158,3 @@ def _generate_synthetic_kaggle_like(
     write_csv(train, train_csv)
     write_csv(test, test_csv)
     write_csv(sample, sample_sub_csv)
-
-

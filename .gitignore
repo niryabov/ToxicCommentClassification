@@ -20,6 +20,11 @@ multirun/
 # MLflow
 mlruns/
 
+# Training logs
+lightning_logs/
+logs/
+*.log
+
 # Data/artifacts (managed by DVC)
 # Keep big files out of git, but allow DVC metafiles (*.dvc) to be tracked.
 !data/

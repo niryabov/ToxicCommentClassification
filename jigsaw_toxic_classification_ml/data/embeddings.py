@@ -90,5 +90,3 @@ def _maybe_assign(
     matrix[idx] = vec
     remaining.discard(word)
     return True
-
-

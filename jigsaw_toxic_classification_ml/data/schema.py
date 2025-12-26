@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 LabelName = Literal[
     "toxic",
     "severe_toxic",
@@ -21,5 +20,3 @@ class SingleTextRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     predictions: dict[LabelName, float]
-
-

@@ -120,7 +120,8 @@ class LightningToxicModule(pl.LightningModule):
         self.log("val_mean_columnwise_auc", mean_auc, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self) -> Any:
-        opt = torch.optim.AdamW(
+        # Match Keras reference: Adam optimizer
+        opt = torch.optim.Adam(
             self.parameters(),
             lr=float(self.hparams.lr),
             weight_decay=float(self.hparams.weight_decay),
@@ -278,7 +279,9 @@ def train_model(cfg: DictConfig) -> dict[str, Any]:
         end_run()
 
 
-def _maybe_load_pretrained_embeddings(cfg: DictConfig, vocab: Any, net: nn.Module) -> None:
+def _maybe_load_pretrained_embeddings(
+    cfg: DictConfig, vocab: Any, net: nn.Module
+) -> None:
     """
     If enabled in config, initialize embedding weights from a fastText .vec file.
     """
@@ -306,7 +309,8 @@ def _maybe_load_pretrained_embeddings(cfg: DictConfig, vocab: Any, net: nn.Modul
     if vec_path is None:
         raise FileNotFoundError(
             "Pretrained embeddings enabled, but no .vec found. "
-            "Set model.encoder.pretrained.path or place a *.vec in repo root or data/raw."
+            "Set model.encoder.pretrained.path or place a *.vec in repo root "
+            "or data/raw."
         )
 
     matrix = load_fasttext_subset(
