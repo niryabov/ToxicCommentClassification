@@ -1,0 +1,50 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Envs
+.venv/
+venv/
+ENV/
+
+# Hydra outputs
+outputs/
+multirun/
+
+# MLflow
+mlruns/
+
+# Data/artifacts (managed by DVC)
+# Keep big files out of git, but allow DVC metafiles (*.dvc) to be tracked.
+!data/
+data/**
+!data/**/
+!data/**/*.dvc
+
+!artifacts/
+artifacts/**
+!artifacts/**/
+!artifacts/**/*.dvc
+
+dvc_remote/
+
+# Embeddings (keep out of git; use DVC)
+*.vec
+*.vec.gz
+
+# ONNX / tensorRT outputs
+*.onnx
+*.plan
+
+# IDE
+.idea/
+.vscode/
+
+# Prettier / node
+node_modules/

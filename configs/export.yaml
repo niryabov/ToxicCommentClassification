@@ -1,0 +1,5 @@
+onnx_dir: ${data.artifacts_dir}/onnx
+onnx_path: ${export.onnx_dir}/toxic_classifier.onnx
+
+checkpoint_path: ${data.artifacts_dir}/checkpoints/best.ckpt
+opset_version: 18

@@ -1,0 +1,9 @@
+mlflow:
+  tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:8080}
+  experiment_name: jigsaw_toxic_comment
+  run_name: null
+  tags:
+    project: ${project_name}
+
+project_root: ${oc.env:PROJECT_ROOT,.}
+local_plots_dir: ${logging.project_root}/plots

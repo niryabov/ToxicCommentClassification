@@ -1,0 +1,9 @@
+[core]
+    analytics = false
+    remote = local
+
+[cache]
+    dir = .dvc/cache
+
+[remote "local"]
+    url = dvc_remote

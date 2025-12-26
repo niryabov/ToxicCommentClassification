@@ -1,0 +1,17 @@
+encoder:
+  type: gru
+  vocab_size: null # set at runtime after loading vocab
+  embed_dim: 128
+  hidden_dim: 128
+  num_layers: 1
+  dropout: 0.1
+  bidirectional: true
+  embedding_spatial_dropout: 0.2
+  pooling: avgmax # avgmax matches Kaggle reference (avg + max pooling concat)
+  pretrained:
+    enabled: false
+    path: null # if null, auto-detect *.vec in repo root or data/raw
+    freeze: false
+
+head:
+  dropout: 0.2

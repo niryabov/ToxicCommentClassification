@@ -1,0 +1,12 @@
+defaults:
+  - _self_
+  - data: data
+  - preprocess: preprocess
+  - model: model
+  - train: train
+  - infer: infer
+  - export: export
+  - logging: logging
+
+project_name: jigsaw_toxic_classification_ml
+seed: 42

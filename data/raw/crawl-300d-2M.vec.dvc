@@ -1,0 +1,5 @@
+outs:
+- md5: fdc64ef57945cff3411a228a304067b4
+  size: 4516698366
+  hash: md5
+  path: crawl-300d-2M.vec

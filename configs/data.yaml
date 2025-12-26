@@ -1,0 +1,22 @@
+project_root: ${oc.env:PROJECT_ROOT,.}
+
+raw_dir: ${oc.env:RAW_DIR,${data.project_root}/data/raw}
+processed_dir: ${oc.env:PROCESSED_DIR,${data.project_root}/data/processed}
+artifacts_dir: ${oc.env:ARTIFACTS_DIR,${data.project_root}/artifacts}
+
+train_csv: ${data.raw_dir}/train.csv
+test_csv: ${data.raw_dir}/test.csv
+sample_submission_csv: ${data.raw_dir}/sample_submission.csv
+
+train_processed_path: ${data.processed_dir}/train.parquet
+val_processed_path: ${data.processed_dir}/val.parquet
+test_processed_path: ${data.processed_dir}/test.parquet
+vocab_path: ${data.processed_dir}/vocab.json
+
+labels:
+  - toxic
+  - severe_toxic
+  - obscene
+  - threat
+  - insult
+  - identity_hate

@@ -1,0 +1,39 @@
+batch_size: 64
+num_workers: 0
+max_epochs: 2
+learning_rate: 3.0e-4
+weight_decay: 1.0e-2
+
+trainer:
+  accelerator: auto
+  devices: auto
+  log_every_n_steps: 20
+  enable_checkpointing: true
+  enable_progress_bar: true
+  deterministic: true
+
+checkpoint:
+  monitor: val_macro_f1
+  mode: max
+  save_top_k: 1
+
+smoke:
+  enabled: false
+  limit_train_batches: 2
+  limit_val_batches: 2
+
+data:
+  # Optional caps to make local runs faster on large Kaggle datasets.
+  # Set to null to use full dataset.
+  max_train_samples: null
+  max_val_samples: null
+
+baseline:
+  enabled: true
+  max_features: 50000
+  ngram_min: 1
+  ngram_max: 2
+  C: 2.0
+  # Optional caps for baseline (separate from neural caps).
+  max_train_samples: 50000
+  max_val_samples: 20000

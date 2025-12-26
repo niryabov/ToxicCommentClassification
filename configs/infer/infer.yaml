@@ -1,0 +1,6 @@
+batch_size: 64
+max_length: ${preprocess.tokenize.max_length}
+
+onnx:
+  model_path: ${data.artifacts_dir}/onnx/toxic_classifier.onnx
+  vocab_path: ${data.processed_dir}/vocab.json
