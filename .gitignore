@@ -25,6 +25,9 @@ lightning_logs/
 logs/
 *.log
 
+# Generated plots (keep plots/.gitkeep only)
+plots/*.png
+
 # Data/artifacts (managed by DVC)
 # Keep big files out of git, but allow DVC metafiles (*.dvc) to be tracked.
 !data/
